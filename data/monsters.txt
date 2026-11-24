@@ -1,0 +1,7 @@
+205;Kuntilanak;50;8;40
+203;Genderuwo;80;12;60
+209;Leak;70;11;55
+201;Tuyul;30;5;20
+207;Wewe Gombel;60;10;50
+202;Pocong;40;7;30
+210;Naga Bromo;150;20;150

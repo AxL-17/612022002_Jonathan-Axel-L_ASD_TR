@@ -7,6 +7,7 @@
 #include "game.h"
 #include "graph.h"
 #include "hashtable.h"
+#include "monster.h"
 
 #define MENU_REGISTER 1
 #define MENU_LOGIN    2
@@ -45,12 +46,20 @@ int main(void) {
         return 1;
     }
 
+    MonsterCatalog monsters;
+    if (!loadMonsters(MONSTERS_FILE, &monsters)) {
+        printf("Gagal membaca %s. Jalankan program dari folder utama proyek.\n", MONSTERS_FILE);
+        freeInventory(&catalog);
+        freeGraph(&dungeon);
+        return 1;
+    }
+
     HashTable itemIndex;
     initHashTable(&itemIndex);
     for (int i = 0; i < catalog.size; i++) {
         hashInsert(&itemIndex, &catalog.data[i]);
     }
-    GameData gameData = { &catalog, &dungeon, &itemIndex };
+    GameData gameData = { &catalog, &dungeon, &itemIndex, &monsters };
 
     int choice;
     do {

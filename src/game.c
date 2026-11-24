@@ -5,6 +5,8 @@
 #include "sorting.h"
 #include "searching.h"
 #include "stack.h"
+#include "bst.h"
+#include "battle.h"
 
 #define MENU_LOGOUT      0
 #define MENU_STATUS      1
@@ -16,7 +18,9 @@
 #define MENU_SORT        7
 #define MENU_SEARCH      8
 #define MENU_HASH        9
-#define MENU_MAX         9
+#define MENU_BATTLE      10
+#define MENU_BESTIARY    11
+#define MENU_MAX         11
 
 #define MAP_SHOW  1
 #define MAP_BFS   2
@@ -29,6 +33,12 @@
 #define SEARCH_BINARY     2
 
 #define MAX_ITEM_ID 9999
+
+#define BESTIARY_PREORDER  1
+#define BESTIARY_INORDER   2
+#define BESTIARY_POSTORDER 3
+#define BESTIARY_SEARCH    4
+#define BESTIARY_DELETE    5
 
 #define HASH_LOOKUP 1
 #define HASH_SHOW   2
@@ -44,6 +54,8 @@ static void showGameMenu(void) {
     printf("7. Urutkan inventori (sorting)\n");
     printf("8. Cari item di inventori (searching)\n");
     printf("9. Katalog item (hash table)\n");
+    printf("10. Battle monster\n");
+    printf("11. Bestiary (BST)\n");
     printf("0. Simpan & Logout\n");
 }
 
@@ -223,12 +235,119 @@ static void searchCatalogByHash(const HashTable *table) {
     printItemTable(found, 1);
 }
 
+static int getAttackPower(const Inventory *inventory) {
+    int strongest = 0;
+    for (int i = 0; i < inventory->size; i++) {
+        if (inventory->data[i].power > strongest) {
+            strongest = inventory->data[i].power;
+        }
+    }
+    return PLAYER_BASE_ATTACK + strongest;
+}
+
+static void recordInBestiary(BstNode **bestiary, const Monster *monster) {
+    BestiaryEntry entry;
+    entry.id = monster->id;
+    snprintf(entry.name, sizeof(entry.name), "%s", monster->name);
+    entry.hp = monster->hp;
+    entry.attack = monster->attack;
+    entry.timesDefeated = 1;
+    *bestiary = bstInsert(*bestiary, &entry);
+}
+
+static void handleVictory(Player *player, const Monster *monster, BstNode **bestiary) {
+    player->score += monster->reward;
+    healPlayer(player, HEAL_AFTER_WIN);
+    printf("Menang! +%d skor (total %d). HP pulih sedikit.\n", monster->reward, player->score);
+    if (updateLevel(player)) {
+        printf("LEVEL UP! Sekarang level %d (HP maksimum %d).\n", player->level, getMaxHp(player));
+    }
+    recordInBestiary(bestiary, monster);
+    printf("%s dicatat di bestiary.\n", monster->name);
+}
+
+static void handleDefeat(Player *player, Stack *history) {
+    player->hp = getMaxHp(player);
+    player->currentRoom = START_ROOM;
+    freeStack(history);
+    initStack(history);
+    printf("Kamu terbangun di Gerbang Masuk dengan HP pulih. Riwayat langkah dihapus.\n");
+}
+
+static void startBattle(Player *player, const MonsterCatalog *monsters,
+                        const Inventory *inventory, BstNode **bestiary, Stack *history) {
+    printMonsterTable(monsters);
+    int choice = readInt("Pilih monster (0 = batal): ", 0, monsters->count);
+    if (choice == 0) {
+        return;
+    }
+    const Monster *monster = &monsters->list[choice - 1];
+    BattleResult result = runBattle(player, monster, getAttackPower(inventory));
+
+    if (result == BATTLE_WON) {
+        handleVictory(player, monster, bestiary);
+    } else if (result == BATTLE_LOST) {
+        handleDefeat(player, history);
+    }
+}
+
+static void searchBestiary(BstNode *bestiary) {
+    int id = readInt("ID monster: ", 1, MAX_ITEM_ID);
+    BstNode *found = bstSearch(bestiary, id);
+    if (found == NULL) {
+        printf("Monster dengan ID %d belum ada di bestiary.\n", id);
+        return;
+    }
+    printBestiaryHeader();
+    printBestiaryEntry(&found->entry);
+}
+
+static void deleteFromBestiary(BstNode **bestiary) {
+    int id = readInt("ID monster yang dihapus: ", 1, MAX_ITEM_ID);
+    int deleted = 0;
+    *bestiary = bstDelete(*bestiary, id, &deleted);
+    if (deleted) {
+        printf("Monster ID %d dihapus dari bestiary.\n", id);
+    } else {
+        printf("Monster dengan ID %d tidak ada di bestiary.\n", id);
+    }
+}
+
+static void bestiaryMenu(BstNode **bestiary) {
+    printf("Bestiary berisi %d monster.\n", bstCount(*bestiary));
+    printf("1. Pre-order  2. In-order  3. Post-order  4. Cari  5. Hapus\n");
+    int choice = readInt("Pilih: ", BESTIARY_PREORDER, BESTIARY_DELETE);
+
+    if (choice == BESTIARY_SEARCH) {
+        searchBestiary(*bestiary);
+        return;
+    }
+    if (choice == BESTIARY_DELETE) {
+        deleteFromBestiary(bestiary);
+        return;
+    }
+    if (*bestiary == NULL) {
+        printf("Bestiary masih kosong. Kalahkan monster dulu!\n");
+        return;
+    }
+    printBestiaryHeader();
+    if (choice == BESTIARY_PREORDER) {
+        bstPreorder(*bestiary);
+    } else if (choice == BESTIARY_INORDER) {
+        bstInorder(*bestiary);
+    } else {
+        bstPostorder(*bestiary);
+    }
+}
+
 void runGame(Player *player, const GameData *data) {
     const Inventory *catalog = data->catalog;
     const Graph *dungeon = data->dungeon;
     Inventory inventory;
     Stack history;
+    BstNode *bestiary;
     char path[PATH_SIZE];
+    char bestiaryPath[PATH_SIZE];
 
     initStack(&history);
     if (player->currentRoom < 0 || player->currentRoom >= dungeon->count) {
@@ -238,6 +357,8 @@ void runGame(Player *player, const GameData *data) {
     initInventory(&inventory);
     buildInventoryPath(path, sizeof(path), player->username);
     loadItemsFromFile(path, &inventory);   /* file belum ada = inventori baru */
+    snprintf(bestiaryPath, sizeof(bestiaryPath), "data/bestiary_%s.txt", player->username);
+    bestiary = loadBestiary(bestiaryPath);
 
     int choice;
     do {
@@ -252,6 +373,10 @@ void runGame(Player *player, const GameData *data) {
             case MENU_UNDO:      undoMove(player, dungeon, &history); break;
             case MENU_MAP:       showDungeonMap(player, dungeon); break;
             case MENU_HASH:      searchCatalogByHash(data->itemIndex); break;
+            case MENU_BATTLE:
+                startBattle(player, data->monsters, &inventory, &bestiary, &history);
+                break;
+            case MENU_BESTIARY:  bestiaryMenu(&bestiary); break;
             case MENU_TAKE_ITEM: takeItem(&inventory, catalog); break;
             case MENU_INVENTORY: printItemTable(inventory.data, inventory.size); break;
             case MENU_SORT:      sortInventory(&inventory); break;
@@ -260,11 +385,13 @@ void runGame(Player *player, const GameData *data) {
         }
     } while (choice != MENU_LOGOUT);
 
-    if (savePlayer(player) && saveItemsToFile(path, &inventory)) {
+    if (savePlayer(player) && saveItemsToFile(path, &inventory)
+        && saveBestiary(bestiaryPath, bestiary)) {
         printf("Progres dan inventori tersimpan. Logout berhasil.\n");
     } else {
         printf("Peringatan: progres gagal disimpan.\n");
     }
     freeInventory(&inventory);
     freeStack(&history);
+    bstFree(bestiary);
 }

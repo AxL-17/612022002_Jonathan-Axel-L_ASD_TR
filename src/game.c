@@ -4,14 +4,22 @@
 #include "auth.h"
 #include "sorting.h"
 #include "searching.h"
+#include "stack.h"
 
 #define MENU_LOGOUT      0
 #define MENU_STATUS      1
-#define MENU_TAKE_ITEM   2
-#define MENU_INVENTORY   3
-#define MENU_SORT        4
-#define MENU_SEARCH      5
-#define MENU_MAX         5
+#define MENU_EXPLORE     2
+#define MENU_UNDO        3
+#define MENU_MAP         4
+#define MENU_TAKE_ITEM   5
+#define MENU_INVENTORY   6
+#define MENU_SORT        7
+#define MENU_SEARCH      8
+#define MENU_MAX         8
+
+#define MAP_SHOW  1
+#define MAP_BFS   2
+#define MAP_DFS   3
 
 #define ALGO_BUBBLE 1
 #define ALGO_MERGE  2
@@ -24,10 +32,13 @@
 static void showGameMenu(void) {
     printf("\n--- Menu Game ---\n");
     printf("1. Lihat status pemain\n");
-    printf("2. Ambil item dari katalog\n");
-    printf("3. Lihat inventori\n");
-    printf("4. Urutkan inventori (sorting)\n");
-    printf("5. Cari item di inventori (searching)\n");
+    printf("2. Jelajah (pindah ruangan)\n");
+    printf("3. Undo langkah (stack)\n");
+    printf("4. Peta dungeon (graph, BFS, DFS)\n");
+    printf("5. Ambil item dari katalog\n");
+    printf("6. Lihat inventori\n");
+    printf("7. Urutkan inventori (sorting)\n");
+    printf("8. Cari item di inventori (searching)\n");
     printf("0. Simpan & Logout\n");
 }
 
@@ -117,9 +128,87 @@ static void searchInventory(Inventory *inventory) {
     }
 }
 
-void runGame(Player *player, const Inventory *catalog) {
+static void printCurrentRoom(const Player *player, const Graph *dungeon) {
+    printf("Kamu berada di: %s\n", dungeon->names[player->currentRoom]);
+}
+
+static void exploreDungeon(Player *player, const Graph *dungeon, Stack *history) {
+    int neighbors[MAX_ROOMS];
+    int count = getNeighbors(dungeon, player->currentRoom, neighbors);
+
+    printCurrentRoom(player, dungeon);
+    if (count == 0) {
+        printf("Tidak ada pintu keluar dari ruangan ini.\n");
+        return;
+    }
+    printf("Pintu yang tersedia:\n");
+    for (int i = 0; i < count; i++) {
+        printf("  %d. %s\n", i + 1, dungeon->names[neighbors[i]]);
+    }
+    int choice = readInt("Pilih pintu (0 = batal): ", 0, count);
+    if (choice == 0) {
+        return;
+    }
+    if (!push(history, player->currentRoom)) {
+        printf("Gagal mencatat riwayat (memori habis).\n");
+        return;
+    }
+    player->currentRoom = neighbors[choice - 1];
+    printf("Kamu masuk ke %s.\n", dungeon->names[player->currentRoom]);
+    if (player->currentRoom == getBossRoom(dungeon)) {
+        printf("Kamu tiba di ruang BOSS! (battle hadir di modul berikutnya)\n");
+    }
+}
+
+static void undoMove(Player *player, const Graph *dungeon, Stack *history) {
+    int previousRoom;
+    if (!pop(history, &previousRoom)) {
+        printf("Tidak ada langkah yang bisa di-undo.\n");
+        return;
+    }
+    player->currentRoom = previousRoom;
+    printf("Undo berhasil. Kamu kembali ke %s. (sisa riwayat: %d langkah)\n",
+           dungeon->names[previousRoom], history->size);
+}
+
+static void showShortestPathToBoss(const Player *player, const Graph *dungeon) {
+    int path[MAX_ROOMS];
+    int length = 0;
+    int boss = getBossRoom(dungeon);
+
+    if (!bfsShortestPath(dungeon, player->currentRoom, boss, path, &length)) {
+        printf("Tidak ada jalur menuju ruang boss.\n");
+        return;
+    }
+    if (length == 1) {
+        printf("Kamu sudah berada di ruang boss!\n");
+        return;
+    }
+    printf("Jalur terpendek ke %s (%d langkah):\n", dungeon->names[boss], length - 1);
+    for (int i = 0; i < length; i++) {
+        printf("%s%s", dungeon->names[path[i]], (i < length - 1) ? " -> " : "\n");
+    }
+}
+
+static void showDungeonMap(const Player *player, const Graph *dungeon) {
+    printf("1. Tampilkan peta  2. Jalur terpendek ke boss (BFS)  3. Eksplorasi (DFS)\n");
+    int choice = readInt("Pilih: ", MAP_SHOW, MAP_DFS);
+    switch (choice) {
+        case MAP_SHOW: printMap(dungeon); break;
+        case MAP_BFS:  showShortestPathToBoss(player, dungeon); break;
+        case MAP_DFS:  dfsExplore(dungeon, player->currentRoom); break;
+    }
+}
+
+void runGame(Player *player, const Inventory *catalog, const Graph *dungeon) {
     Inventory inventory;
+    Stack history;
     char path[PATH_SIZE];
+
+    initStack(&history);
+    if (player->currentRoom < 0 || player->currentRoom >= dungeon->count) {
+        player->currentRoom = START_ROOM;
+    }
 
     initInventory(&inventory);
     buildInventoryPath(path, sizeof(path), player->username);
@@ -130,7 +219,13 @@ void runGame(Player *player, const Inventory *catalog) {
         showGameMenu();
         choice = readInt("Pilih: ", 0, MENU_MAX);
         switch (choice) {
-            case MENU_STATUS:    printPlayer(player); break;
+            case MENU_STATUS:
+                printPlayer(player);
+                printCurrentRoom(player, dungeon);
+                break;
+            case MENU_EXPLORE:   exploreDungeon(player, dungeon, &history); break;
+            case MENU_UNDO:      undoMove(player, dungeon, &history); break;
+            case MENU_MAP:       showDungeonMap(player, dungeon); break;
             case MENU_TAKE_ITEM: takeItem(&inventory, catalog); break;
             case MENU_INVENTORY: printItemTable(inventory.data, inventory.size); break;
             case MENU_SORT:      sortInventory(&inventory); break;
@@ -145,4 +240,5 @@ void runGame(Player *player, const Inventory *catalog) {
         printf("Peringatan: progres gagal disimpan.\n");
     }
     freeInventory(&inventory);
+    freeStack(&history);
 }

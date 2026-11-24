@@ -5,6 +5,7 @@
 #include "item.h"
 #include "sorting.h"
 #include "game.h"
+#include "graph.h"
 
 #define MENU_REGISTER 1
 #define MENU_LOGIN    2
@@ -30,7 +31,15 @@ static int loadCatalog(Inventory *catalog) {
 
 int main(void) {
     Inventory catalog;
+    Graph dungeon;
+
     if (!loadCatalog(&catalog)) {
+        freeInventory(&catalog);
+        return 1;
+    }
+    initGraph(&dungeon);
+    if (!loadGraph(&dungeon, DUNGEON_FILE)) {
+        printf("Gagal membaca %s. Jalankan program dari folder utama proyek.\n", DUNGEON_FILE);
         freeInventory(&catalog);
         return 1;
     }
@@ -46,7 +55,7 @@ int main(void) {
             case MENU_LOGIN: {
                 Player player;
                 if (loginUser(&player)) {
-                    runGame(&player, &catalog);
+                    runGame(&player, &catalog, &dungeon);
                 }
                 break;
             }
@@ -56,6 +65,7 @@ int main(void) {
     } while (choice != MENU_EXIT);
 
     freeInventory(&catalog);
+    freeGraph(&dungeon);
     printf("Sampai jumpa!\n");
     return 0;
 }

@@ -15,7 +15,8 @@
 #define MENU_INVENTORY   6
 #define MENU_SORT        7
 #define MENU_SEARCH      8
-#define MENU_MAX         8
+#define MENU_HASH        9
+#define MENU_MAX         9
 
 #define MAP_SHOW  1
 #define MAP_BFS   2
@@ -29,6 +30,9 @@
 
 #define MAX_ITEM_ID 9999
 
+#define HASH_LOOKUP 1
+#define HASH_SHOW   2
+
 static void showGameMenu(void) {
     printf("\n--- Menu Game ---\n");
     printf("1. Lihat status pemain\n");
@@ -39,6 +43,7 @@ static void showGameMenu(void) {
     printf("6. Lihat inventori\n");
     printf("7. Urutkan inventori (sorting)\n");
     printf("8. Cari item di inventori (searching)\n");
+    printf("9. Katalog item (hash table)\n");
     printf("0. Simpan & Logout\n");
 }
 
@@ -200,7 +205,27 @@ static void showDungeonMap(const Player *player, const Graph *dungeon) {
     }
 }
 
-void runGame(Player *player, const Inventory *catalog, const Graph *dungeon) {
+static void searchCatalogByHash(const HashTable *table) {
+    printf("1. Cari item by ID  2. Tampilkan isi hash table\n");
+    int choice = readInt("Pilih: ", HASH_LOOKUP, HASH_SHOW);
+    if (choice == HASH_SHOW) {
+        printHashTable(table);
+        return;
+    }
+    int id = readInt("ID item: ", 1, MAX_ITEM_ID);
+    int bucket, steps;
+    const Item *found = hashSearch(table, id, &bucket, &steps);
+    if (found == NULL) {
+        printf("Item dengan ID %d tidak ditemukan (bucket %d, %d langkah).\n", id, bucket, steps);
+        return;
+    }
+    printf("Ditemukan di bucket %d setelah %d langkah.\n", bucket, steps);
+    printItemTable(found, 1);
+}
+
+void runGame(Player *player, const GameData *data) {
+    const Inventory *catalog = data->catalog;
+    const Graph *dungeon = data->dungeon;
     Inventory inventory;
     Stack history;
     char path[PATH_SIZE];
@@ -226,6 +251,7 @@ void runGame(Player *player, const Inventory *catalog, const Graph *dungeon) {
             case MENU_EXPLORE:   exploreDungeon(player, dungeon, &history); break;
             case MENU_UNDO:      undoMove(player, dungeon, &history); break;
             case MENU_MAP:       showDungeonMap(player, dungeon); break;
+            case MENU_HASH:      searchCatalogByHash(data->itemIndex); break;
             case MENU_TAKE_ITEM: takeItem(&inventory, catalog); break;
             case MENU_INVENTORY: printItemTable(inventory.data, inventory.size); break;
             case MENU_SORT:      sortInventory(&inventory); break;

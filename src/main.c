@@ -6,6 +6,7 @@
 #include "sorting.h"
 #include "game.h"
 #include "graph.h"
+#include "hashtable.h"
 
 #define MENU_REGISTER 1
 #define MENU_LOGIN    2
@@ -44,6 +45,13 @@ int main(void) {
         return 1;
     }
 
+    HashTable itemIndex;
+    initHashTable(&itemIndex);
+    for (int i = 0; i < catalog.size; i++) {
+        hashInsert(&itemIndex, &catalog.data[i]);
+    }
+    GameData gameData = { &catalog, &dungeon, &itemIndex };
+
     int choice;
     do {
         showMainMenu();
@@ -55,7 +63,7 @@ int main(void) {
             case MENU_LOGIN: {
                 Player player;
                 if (loginUser(&player)) {
-                    runGame(&player, &catalog, &dungeon);
+                    runGame(&player, &gameData);
                 }
                 break;
             }
@@ -66,6 +74,7 @@ int main(void) {
 
     freeInventory(&catalog);
     freeGraph(&dungeon);
+    freeHashTable(&itemIndex);
     printf("Sampai jumpa!\n");
     return 0;
 }

@@ -1,0 +1,10 @@
+101;Pedang Kayu;5;50
+102;Pedang Besi;15;200
+103;Keris Pusaka;40;900
+104;Perisai Kulit;8;120
+105;Perisai Baja;20;350
+106;Ramuan Kecil;10;30
+107;Ramuan Besar;30;100
+108;Busur Bambu;12;180
+109;Jubah Penyihir;18;400
+110;Tombak Emas;35;750

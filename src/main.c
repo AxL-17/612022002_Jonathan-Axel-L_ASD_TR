@@ -2,13 +2,13 @@
 #include "utils.h"
 #include "player.h"
 #include "auth.h"
+#include "item.h"
+#include "sorting.h"
+#include "game.h"
 
 #define MENU_REGISTER 1
 #define MENU_LOGIN    2
 #define MENU_EXIT     0
-
-#define GAME_STATUS 1
-#define GAME_LOGOUT 0
 
 static void showMainMenu(void) {
     printf("\n=== DUNGEON OF ASD ===\n");
@@ -17,31 +17,24 @@ static void showMainMenu(void) {
     printf("0. Keluar\n");
 }
 
-static void showGameMenu(void) {
-    printf("\n--- Menu Game ---\n");
-    printf("1. Lihat status pemain\n");
-    printf("0. Simpan & Logout\n");
-}
-
-/* Tempat modul lain (battle, inventori, bestiary, dll.) akan dipasang. */
-static void runGame(Player *player) {
-    int choice;
-    do {
-        showGameMenu();
-        choice = readInt("Pilih: ", 0, 1);
-        if (choice == GAME_STATUS) {
-            printPlayer(player);
-        }
-    } while (choice != GAME_LOGOUT);
-
-    if (savePlayer(player)) {
-        printf("Progres tersimpan. Logout berhasil.\n");
-    } else {
-        printf("Peringatan: progres gagal disimpan.\n");
+static int loadCatalog(Inventory *catalog) {
+    initInventory(catalog);
+    if (!loadItemsFromFile(CATALOG_FILE, catalog)) {
+        printf("Gagal membaca %s. Jalankan program dari folder utama proyek.\n", CATALOG_FILE);
+        return 0;
     }
+    /* Urutkan by ID agar katalog bisa dicari dengan binary search. */
+    mergeSort(catalog->data, catalog->size, SORT_BY_ID, ORDER_ASCENDING);
+    return 1;
 }
 
 int main(void) {
+    Inventory catalog;
+    if (!loadCatalog(&catalog)) {
+        freeInventory(&catalog);
+        return 1;
+    }
+
     int choice;
     do {
         showMainMenu();
@@ -53,7 +46,7 @@ int main(void) {
             case MENU_LOGIN: {
                 Player player;
                 if (loginUser(&player)) {
-                    runGame(&player);
+                    runGame(&player, &catalog);
                 }
                 break;
             }
@@ -62,6 +55,7 @@ int main(void) {
         }
     } while (choice != MENU_EXIT);
 
+    freeInventory(&catalog);
     printf("Sampai jumpa!\n");
     return 0;
 }

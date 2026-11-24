@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include "auth.h"
 
 #define FIELD_SEPARATOR ';'
@@ -43,6 +44,18 @@ static int isValidInput(const char *text) {
     return text[0] != '\0' && strchr(text, FIELD_SEPARATOR) == NULL;
 }
 
+static int isValidUsername(const char *name) {
+    if (name[0] == '\0') {
+        return 0;
+    }
+    for (int i = 0; name[i] != '\0'; i++) {
+        if (!isalnum((unsigned char)name[i]) && name[i] != '_') {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static void askCredentials(char *username, char *password) {
     printf("Username: ");
     readLine(username, MAX_NAME);
@@ -54,8 +67,12 @@ int registerUser(void) {
     char username[MAX_NAME], password[MAX_PASS];
     askCredentials(username, password);
 
-    if (!isValidInput(username) || !isValidInput(password)) {
-        printf("Username/password tidak boleh kosong atau mengandung ';'.\n");
+    if (!isValidUsername(username)) {
+        printf("Username tidak boleh kosong dan hanya boleh huruf, angka, atau '_'.\n");
+        return 0;
+    }
+    if (!isValidInput(password)) {
+        printf("Password tidak boleh kosong atau mengandung ';'.\n");
         return 0;
     }
     if (findUser(username, NULL)) {

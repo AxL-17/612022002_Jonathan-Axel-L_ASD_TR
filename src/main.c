@@ -64,8 +64,8 @@ int main(void) {
 
     int choice;
     do {
-        system("cls");
         getchar();
+        system("cls");
         showMainMenu();
         choice = readInt("Pilih: ", 0, 2);
         switch (choice) {

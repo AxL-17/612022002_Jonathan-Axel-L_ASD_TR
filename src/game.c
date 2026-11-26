@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "game.h"
 #include "auth.h"
 #include "sorting.h"
@@ -362,6 +363,7 @@ void runGame(Player *player, const GameData *data) {
 
     int choice;
     do {
+        system("cls");
         showGameMenu();
         choice = readInt("Pilih: ", 0, MENU_MAX);
         switch (choice) {

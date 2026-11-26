@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "utils.h"
 #include "player.h"
 #include "auth.h"
@@ -63,6 +64,7 @@ int main(void) {
 
     int choice;
     do {
+        system("cls");
         showMainMenu();
         choice = readInt("Pilih: ", 0, 2);
         switch (choice) {

@@ -20,14 +20,21 @@ dan mencatat monster yang dikalahkan di bestiary. Progres tersimpan permanen.
 - Bestiary berbasis Binary Search Tree: insert, search, delete, pre/in/post-order
 
 ## Struktur Folder
+```
 include/  header (.h)
 src/      sumber (.c), termasuk main.c
 data/     database .txt (akun, katalog item, monster, dungeon)
 docs/     laporan TR (PDF)
+```
 
 ## Kompilasi
+```
 gcc src/*.c -Iinclude -o app
+```
 
 ## Menjalankan
-Jalankan dari folder utama proyek (bukan dari dalam src/):
-./app   (Windows: app.exe)
+Jalankan dari folder utama proyek (bukan dari dalam `src/`):
+```
+./app
+```
+(Windows PowerShell: `./app` atau `app.exe`)

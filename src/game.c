@@ -363,8 +363,8 @@ void runGame(Player *player, const GameData *data) {
 
     int choice;
     do {
-        system("cls");
         getchar();
+        system("cls");
         showGameMenu();
         choice = readInt("Pilih: ", 0, MENU_MAX);
         switch (choice) {
